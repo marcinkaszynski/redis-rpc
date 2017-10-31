@@ -6,9 +6,7 @@ import time
 from datetime import datetime
 from uuid import uuid4
 
-
 log = logging.getLogger('redis-rpc')
-
 
 # All timeouts and expiry times are in seconds
 BLPOP_TIMEOUT = 1
@@ -52,15 +50,13 @@ def escape_for_logs(v):
 
 def log_request(func_name, req_bytes, exception, msg):
     if exception:
-        log.exception('%s %s %s %s',
-                      func_name,
+        log.exception('%s %s %s %s', func_name,
                       escape_for_logs(req_bytes.decode()),
-                      escape_for_logs('%s: %s' % (type(exception).__name__, str(exception))),
-                      msg)
+                      escape_for_logs('%s: %s' % (type(exception).__name__,
+                                                  str(exception))), msg)
     else:
         log.info('%s %s - %s', func_name,
-                 escape_for_logs(req_bytes.decode()),
-                 msg)
+                 escape_for_logs(req_bytes.decode()), msg)
 
 
 class Scripts:
@@ -77,7 +73,9 @@ class Scripts:
 
 
 class Client:
-    def __init__(self, redis, prefix='redis_rpc',
+    def __init__(self,
+                 redis,
+                 prefix='redis_rpc',
                  request_expire=REQUEST_EXPIRE,
                  blpop_timeout=BLPOP_TIMEOUT,
                  response_timeout=RESPONSE_TIMEOUT):
@@ -91,12 +89,12 @@ class Client:
 
     def call_async(self, func_name, **kwargs):
         req_id = str(uuid4())
-        msg = {'id': req_id,
-               'ts': datetime.now().isoformat()}
+        msg = {'id': req_id, 'ts': datetime.now().isoformat()}
         msg['kw'] = kwargs
 
-        self._scripts.rpush_ex(call_queue_name(self._prefix, func_name),
-                               json.dumps(msg).encode(), self._expire)
+        self._scripts.rpush_ex(
+            call_queue_name(self._prefix, func_name),
+            json.dumps(msg).encode(), self._expire)
 
         return req_id
 
@@ -112,7 +110,8 @@ class Client:
             if now_ts >= deadline_ts:
                 raise RPCTimeout()
 
-            wait_time = math.ceil(min(self._blpop_timeout, deadline_ts - now_ts))
+            wait_time = math.ceil(
+                min(self._blpop_timeout, deadline_ts - now_ts))
             popped = self._redis.blpop([qn], wait_time)
 
         (_, res_bytes) = popped
@@ -127,7 +126,9 @@ class Client:
 
 
 class Server:
-    def __init__(self, redis, func_map,
+    def __init__(self,
+                 redis,
+                 func_map,
                  prefix='redis_rpc',
                  result_expire=RESULT_EXPIRE,
                  blpop_timeout=BLPOP_TIMEOUT):
@@ -137,8 +138,10 @@ class Server:
         self._expire = result_expire
         self._blpop_timeout = blpop_timeout
         self._func_map = func_map
-        self._queue_map = {call_queue_name(self._prefix, name): (name, func)
-                           for (name, func) in func_map.items()}
+        self._queue_map = {
+            call_queue_name(self._prefix, name): (name, func)
+            for (name, func) in func_map.items()
+        }
         self._queue_names = sorted((self._queue_map.keys()))
         self._call_idx = 0
         self._quit = False
@@ -156,8 +159,8 @@ class Server:
         self._quit = True
 
     def serve_one(self):
-        popped = self._redis.blpop(rotated(self._queue_names, self._call_idx),
-                                   self._blpop_timeout)
+        popped = self._redis.blpop(
+            rotated(self._queue_names, self._call_idx), self._blpop_timeout)
         self._call_idx += 1
         if popped is None:
             return
@@ -185,9 +188,9 @@ class Server:
     def send_result(self, func_name, req_id, **kwargs):
         msg = {'ts': datetime.now().isoformat()}
         msg.update(kwargs)
-        self._scripts.rpush_ex(response_queue_name(self._prefix, func_name,
-                                                   req_id),
-                               json.dumps(msg).encode(), self._expire)
+        self._scripts.rpush_ex(
+            response_queue_name(self._prefix, func_name, req_id),
+            json.dumps(msg).encode(), self._expire)
 
     def quit_on_signals(self, signals=[signal.SIGTERM, signal.SIGINT]):
         for s in signals:

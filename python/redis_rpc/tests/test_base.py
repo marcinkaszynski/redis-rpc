@@ -9,7 +9,6 @@ from unittest.mock import Mock
 
 @contextmanager
 def rpc_server(redis, func_map, **kwargs):
-
     def server():
         rpc = Server(redis, func_map, **kwargs)
         rpc.serve()
@@ -71,8 +70,7 @@ def test_expiry_times(redisdb):
 
 
 def test_server_rotates_queues():
-    funcs = {name: lambda: None
-             for name in ['a', 'b', 'c']}
+    funcs = {name: lambda: None for name in ['a', 'b', 'c']}
     mockredis = Mock()
     mockredis.blpop.return_value = None
 
@@ -81,21 +79,21 @@ def test_server_rotates_queues():
 
     srv = Server(mockredis, funcs)
     srv.serve_one()
-    assert last_call_queues() == [b'redis_rpc:a:calls',
-                                  b'redis_rpc:b:calls',
-                                  b'redis_rpc:c:calls']
+    assert last_call_queues() == [
+        b'redis_rpc:a:calls', b'redis_rpc:b:calls', b'redis_rpc:c:calls'
+    ]
     srv.serve_one()
-    assert last_call_queues() == [b'redis_rpc:b:calls',
-                                  b'redis_rpc:c:calls',
-                                  b'redis_rpc:a:calls']
+    assert last_call_queues() == [
+        b'redis_rpc:b:calls', b'redis_rpc:c:calls', b'redis_rpc:a:calls'
+    ]
     srv.serve_one()
-    assert last_call_queues() == [b'redis_rpc:c:calls',
-                                  b'redis_rpc:a:calls',
-                                  b'redis_rpc:b:calls']
+    assert last_call_queues() == [
+        b'redis_rpc:c:calls', b'redis_rpc:a:calls', b'redis_rpc:b:calls'
+    ]
     srv.serve_one()
-    assert last_call_queues() == [b'redis_rpc:a:calls',
-                                  b'redis_rpc:b:calls',
-                                  b'redis_rpc:c:calls']
+    assert last_call_queues() == [
+        b'redis_rpc:a:calls', b'redis_rpc:b:calls', b'redis_rpc:c:calls'
+    ]
 
 
 def test_client_timeout():

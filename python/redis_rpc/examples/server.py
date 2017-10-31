@@ -4,7 +4,6 @@ import logging
 from redis import StrictRedis
 from redis_rpc import Server
 
-
 VALUES = {}
 
 
