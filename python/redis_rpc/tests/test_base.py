@@ -56,6 +56,11 @@ def test_base_usage(redisdb):
         with pytest.raises(RemoteException):
             cli.call('get', unknown_arg='some-value')
 
+        req_id = cli.call_no_response('set', k='k3', v=456)
+        with pytest.raises(RPCTimeout):
+            cli.response('set', req_id)
+        assert cli.call('get', k='k3') == 456
+
 
 def test_expiry_times(redisdb):
     cli = Client(redisdb, request_expire=10)

@@ -84,11 +84,13 @@ class Client:
         self._response_timeout = response_timeout
         warn_if_no_socket_timeout(redis)
 
-    def call_async(self, func_name, **kwargs):
+    def call_async(self, func_name, *, no_response=False, **kwargs):
         req_id = str(uuid4())
         msg = {'id': req_id,
                'ts': datetime.now().isoformat()}
         msg['kw'] = kwargs
+        if no_response:
+            msg['no_response'] = True
 
         rpush_ex(self._redis,
                  call_queue_name(self._prefix, func_name),
@@ -96,6 +98,9 @@ class Client:
                  self._expire)
 
         return req_id
+
+    def call_no_response(self, func_name, **kwargs):
+        return self.call_async(func_name, no_response=True, **kwargs)
 
     def response(self, func_name, req_id):
         start_ts = time.time()
@@ -167,14 +172,17 @@ class Server:
                         'Could not parse incoming message')
             return
 
+        respond = not req.get('no_response')
         try:
             res = func(**req.get('kw', {}))
-            self.send_result(func_name, req['id'], res=res)
+            if respond:
+                self.send_result(func_name, req['id'], res=res)
         except Exception as e:
             # TODO: format information about exception in a nicer way
             log_request(func_name, req_bytes, e,
                         'Caught exception while calling %s' % func_name)
-            self.send_result(func_name, req['id'], err=repr(e))
+            if respond:
+                self.send_result(func_name, req['id'], err=repr(e))
         else:
             log_request(func_name, req_bytes, None, 'OK')
 

@@ -79,3 +79,6 @@ Result message:
     # or, if finished with an error
     {"ts": "{time-stamp-iso8601}",
      "err": "{human-readable description of the error}"}
+
+If the call message contains `"no_response": true`, the result message
+is not sent.
