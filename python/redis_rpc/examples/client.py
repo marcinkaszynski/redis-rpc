@@ -13,6 +13,13 @@ def main():
         print(cli.call('get', k=sys.argv[2]))
     elif sys.argv[1] == 'set':
         print(cli.call('set', k=sys.argv[2], v=sys.argv[3]))
+    elif sys.argv[1] == 'countdown':
+        n = int(sys.argv[2])
+        for is_result, data in cli.call_with_updates('countdown', n=n):
+            if is_result:
+                print(data)
+            else:
+                print('update', data)
     else:
         print("Unknown command:", sys.argv[1])
 

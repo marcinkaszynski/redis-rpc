@@ -3,7 +3,7 @@ import time
 from contextlib import contextmanager
 from multiprocessing import Process
 from redis_rpc import (Client, Server, RemoteException, RPCTimeout,
-                       call_queue_name, response_queue_name)
+                       call_queue_name, response_queue_name, has_updates)
 from unittest.mock import Mock
 
 
@@ -107,3 +107,32 @@ def test_client_timeout():
     with pytest.raises(RPCTimeout):
         cli.call('fake_func')
     assert mockredis.blpop.call_count > 1
+
+
+def test_updates(redisdb):
+    @has_updates
+    def countdown(n, add_update):
+        for i in range(n, 0, -1):
+            add_update(i)
+        return 0
+
+    cli = Client(redisdb)
+    with rpc_server(redisdb, {'countdown': countdown}):
+        x = cli.call('countdown', n=5)
+        assert x == 0
+
+        req_id = cli.call_async('countdown', n=5)
+        x = cli.response('countdown', req_id)
+        assert x == 0
+        updates = cli.updates('countdown', req_id)
+        assert updates == [5, 4, 3, 2, 1]
+
+        l = list(cli.call_with_updates('countdown', n=5))
+        assert l == [
+            (False, 5),
+            (False, 4),
+            (False, 3),
+            (False, 2),
+            (False, 1),
+            (True, 0)
+        ]
