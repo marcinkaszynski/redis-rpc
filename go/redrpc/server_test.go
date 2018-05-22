@@ -130,3 +130,28 @@ func TestPropagatePanic(t *testing.T) {
 	assert.Equal(t, result, []string{"redis_rpc:test:result:call-id", `{"ts":"2018-01-01T00:00:00Z","err":"oh no"}`})
 	assert.Equal(t, resultTTL, 10*time.Second)
 }
+
+func TestServerRotatesQueues(t *testing.T) {
+	blpopCalls := [][]string{}
+
+	red := &TestDbAdapter{
+		blpopMock: func(timeout time.Duration, keys ...string) ([]string, error) {
+			blpopCalls = append(blpopCalls, keys)
+			return nil, nil
+		},
+	}
+	srv := NewServerWithAdapter(red, nil, map[string]Handler{
+		"a": HandlerFunc(func(req Request) (interface{}, error) { return nil, nil }),
+		"b": HandlerFunc(func(req Request) (interface{}, error) { return nil, nil }),
+		"c": HandlerFunc(func(req Request) (interface{}, error) { return nil, nil }),
+	})
+	assert.True(t, srv.RunOnce())
+	assert.True(t, srv.RunOnce())
+	assert.True(t, srv.RunOnce())
+
+	assert.Equal(t, blpopCalls, [][]string{
+		[]string{"redis_rpc:a:calls", "redis_rpc:b:calls", "redis_rpc:c:calls"},
+		[]string{"redis_rpc:b:calls", "redis_rpc:c:calls", "redis_rpc:a:calls"},
+		[]string{"redis_rpc:c:calls", "redis_rpc:a:calls", "redis_rpc:b:calls"},
+	})
+}

@@ -41,7 +41,8 @@ type Server struct {
 	queues   []string
 	queueMap map[string]string
 
-	closing int64
+	closing    int64
+	iterations int
 }
 
 type RequestImpl struct {
@@ -98,7 +99,9 @@ func (s *Server) Run() {
 }
 
 func (s *Server) RunOnce() bool {
-	res, err := s.red.BLPop(time.Second, s.queues...)
+	res, err := s.red.BLPop(time.Second, rotated(s.queues, s.iterations)...)
+	s.iterations += 1
+
 	if err != nil && err != redis.Nil {
 		log.Print("Error in BLPOP: ", err)
 		return false
@@ -209,4 +212,12 @@ func (s *Server) sendResponse(func_name string, req *RequestImpl, res interface{
 
 func (s *Server) timestamp() string {
 	return s.opts.TimeSource().Format(time.RFC3339)
+}
+
+func rotated(s []string, i int) []string {
+	if len(s) == 0 {
+		return s
+	}
+	i = i % len(s)
+	return append(s[i:], s[:i]...)
 }
